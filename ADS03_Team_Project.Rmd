@@ -31,6 +31,7 @@ library(TeachingDemos)
 
 ```
 
+#### Data Setup/Load
 
 ```{r setup_part2}
 
@@ -47,6 +48,7 @@ head(brain)
 brain[,2]
 
 ```
+#### Histograms, EDA, observe Skew/etc 
 
 
 ```{r moredataexplore1}
@@ -62,6 +64,12 @@ hist(brain$X1053_at)
 hist(brain$X117_at)
 hist(brain$X121_at)
 ```
+
+***
+
+### Logistic Regression Section:
+
+#### Generate binary version of output and add to dataframe **brain_df**
 
 ```{r dataprocesses1}
 ### Create a binary alternate output and include in dataframe
@@ -93,32 +101,92 @@ brain_trainb <- brain_df[brain_train_idx,]
 brain_testb <- brain_df[-brain_train_idx,]
 
 ```
+***
 
-#### Data train/test data splits based on multi-class output *type* for logistic classification:
+### Nearest Shrunken data prep, train, and test:
+
+#### Data train/test data splits based on multi-class output *type* on dataframe **brain** for Nearest Shrunken classification:
 
 ```{r multiclassdatasplit}
 
 ### Stratified random sampling for multiclass output classes, type:
 set.seed(100)
+brain$type=as.factor(brain$type)
 
-brain_train_idx <- createDataPartition(brain_df$type, p=0.8, list = FALSE)
-brain_train1 <- brain_df[brain_train_idx,]
-brain_test1 <- brain_df[-brain_train_idx,]
+brain_train_idx <- createDataPartition(brain$type, p=0.8, list = FALSE)
+brain_train1 <- brain[brain_train_idx,]
+brain_test1 <- brain[-brain_train_idx,]
 
 
 ```
 
-#### Moving forward with multiclass variable "type" stratified random split:
+#### BoxCox, Scale and Center Training data:
 
-```{r scalecenter}
+```{r scalecenter_multiclass}
 
 
-brain_process <- preProcess(brain_train1[,-c(1:3)],
+brain_process <- preProcess(brain_train1[,-c(1:2)],
                     method = c("BoxCox", "scale", "center"))
-brain_train <- predict(brain_process, brain_train1)
+brain2_train <- predict(brain_process, brain_train1)
 
 ```
 
+
+#### Train Nearest Shrunken Centroid Model:
+
+```{r shrunken_centroids}
+ctrl_brain2 <- trainControl(method = "cv",
+                     classProbs = TRUE,
+                     savePredictions = TRUE)
+
+set.seed(476)
+nsc_model_brain2 <- train(x = brain2_train[,-c(1:2)], 
+                y = brain2_train$type,
+                method = "pam",
+                tuneGrid = data.frame(threshold = seq(0, 25, length = 30)),
+                trControl = ctrl_brain2)
+nsc_model_brain2
+
+### RESULTS Nearest Shrunken Centriods Training:
+#Accuracy: .9336
+#Kappa: .91004
+#Cross-validated Accuracy = 
+#threshold = 0
+#number predictors: 54675
+
+```
+#### Most important variables for the NSC model on brain training data:
+
+```{r model_results_nsc}
+
+ImpVar_NCS_brain2 <- varImp(nsc_model_brain2, scale = FALSE)
+plot(ImpVar_NCS_brain2, top=5)
+
+```
+
+#### BoxCox, center and scale test data:
+
+```{r prepare_test_data}
+
+brain_process_test <- preProcess(brain_test1[,-c(1:2)],
+                    method = c("BoxCox", "scale", "center"))
+brain2_test <- predict(brain_process_test, brain_test1)
+
+
+```
+
+#### Run the NSC model on test data:
+
+```{r shurnken_centoids_results}
+brain2_nsc_pred <- predict(nsc_model_brain2, brain2_test[,-c(1:2)])
+
+confusionMatrix(brain2_nsc_pred, brain2_test$type)
+
+```
+
+***
+
+### Extra code like PCA/SVM modeling unverified:
 
 ```{r pca}
 
