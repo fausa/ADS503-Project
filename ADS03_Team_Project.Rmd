@@ -1,6 +1,6 @@
 ---
 title: "ADS503_Team_Project"
-author: "Azucena Faus"
+author: "Team 6"
 date: "6/7/2022"
 output: html_document
 ---
